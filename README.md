@@ -1,4 +1,4 @@
-# CHIP-8 Interpreter
+# CHIP-8 Emulator
 
 ### References
 * [CHIP-8 Walkthrough](https://austinmorlan.com/posts/chip8_emulator/)
