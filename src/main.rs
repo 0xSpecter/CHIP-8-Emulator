@@ -8,6 +8,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 
 mod chip;
+mod compiler;
 
 use chip::*;
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -102,6 +103,13 @@ impl ApplicationHandler for App<'_> {
             }
             _ => (),
         }
+    }
+}
+
+impl App<'_> {
+    fn reset(&mut self, rom: String) {
+        self.chip = Chip::new();
+        self.chip.load_rom_into_memory(rom);
     }
 }
 
