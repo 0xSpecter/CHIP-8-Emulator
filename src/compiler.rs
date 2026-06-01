@@ -1,3 +1,4 @@
+// this file is compiled seperatly, its just included in main for lsp reasons
 struct Compiler {
     tokens: Vec<String>,
     index: usize,
@@ -17,39 +18,73 @@ impl Compiler {
         self.tokens = code.split_whitespace().map(|s| s.to_owned()).collect();
         while self.index < self.tokens.len() {
             match self.tokens[self.index].as_str() {
+                // Clear the display
                 "cls" => self.push(0x00e0),
+                // Return from a subroutine.
                 "ret" => self.push(0x00ee),
+                // Jump to location nnn
                 "jp" => self.combine_xnnn(0x1),
+                // Call subroutine at nnn.
                 "call" => self.combine_xnnn(0x2),
+                // Skip next instruction if register at x equals kk
                 "se" => self.combine_xnkk(0x3),
+                // Skip next instruction if register at x does not equal kk
                 "sne" => self.combine_xnkk(0x4),
+                // Skip next instruction if register at x is equal to register at y
                 "sev" => self.combine_xyzn(0x5, 0x0),
+                // Set Vx = kk
                 "ld" => self.combine_xnkk(0x6),
+                // Set Vx = Vx + kk.
                 "add" => self.combine_xnkk(0x7),
+                // Set Vx = Vy.
                 "mov" => self.combine_xyzn(0x8, 0x0),
+                // Set Vx = Vx OR Vy
                 "or" => self.combine_xyzn(0x8, 0x1),
+                // Set Vx = Vx AND Vy
                 "and" => self.combine_xyzn(0x8, 0x2),
+                // Set Vx = Vx XOR Vy
                 "xor" => self.combine_xyzn(0x8, 0x3),
+                // Set Vx = Vx + Vy, set VF = carry
                 "addr" => self.combine_xyzn(0x8, 0x4),
+                // Set Vx = Vx - Vy, set VF = NOT borrow.
                 "sub" => self.combine_xyzn(0x8, 0x5),
+                // Set Vx = Vx SHR 1
                 "shr" => self.combine_xyzn(0x8, 0x6),
+                // Set Vx = Vy - Vx, set VF = NOT borrow
                 "subn" => self.combine_xyzn(0x8, 0x7),
+                // Set Vx = Vx SHL 1.
                 "shl" => self.combine_xyzn(0x8, 0xe),
+                // Skip next instruction if Vx != Vy.
                 "snev" => self.combine_xyzn(0x9, 0x0),
+                // Set I = nnn
                 "ldi" => self.combine_xnnn(0xa),
+                // Jump to location nnn + V0
                 "jpv" => self.combine_xnnn(0xb),
+                // Set Vx = random byte AND kk
                 "rnd" => self.combine_xnkk(0xc),
+                // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
                 "drw" => self.combine_xyn(),
+                // Skip next instruction if key with the value of Vx is pressed
                 "skp" => self.combine_xflo(0x9e),
+                // Skip next instruction if key with the value of Vx is not pressed.
                 "sknp" => self.combine_xflo(0xa1),
+                // Set Vx = delay timer value
                 "gdt" => self.combine_xflo(0x07),
+                // Wait for a key press, store the value of the key in Vx
                 "key" => self.combine_xflo(0x0a),
+                // Set delay timer = Vx
                 "sdt" => self.combine_xflo(0x15),
+                // Set sound timer = Vx
                 "sst" => self.combine_xflo(0x18),
+                // Set I = I + Vx
                 "addi" => self.combine_xflo(0x1e),
+                // Set I = location of sprite for digit Vx
                 "font" => self.combine_xflo(0x29),
+                // Store BCD representation of Vx in memory locations I, I+1, and I+2
                 "bcd" => self.combine_xflo(0x33),
+                // Store registers V0 through Vx in memory starting at location I.
                 "stor" => self.combine_xflo(0x55),
+                // Read registers V0 through Vx from memory starting at location I.
                 "read" => self.combine_xflo(0x65),
                 _ => (),
             }
@@ -58,7 +93,7 @@ impl Compiler {
         let bytes: Vec<u8> = self
             .opcodes
             .iter()
-            .flat_map(|op| op.to_be_bytes().into_iter())
+            .flat_map(|op| op.to_be_bytes().to_vec())
             .collect();
         std::fs::write(outname, &bytes).unwrap();
     }
@@ -107,3 +142,8 @@ impl Compiler {
     }
 }
 
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let mut comp: Compiler = Compiler::new();
+    comp.compile(args[1].clone(), args[2].clone());
+}
