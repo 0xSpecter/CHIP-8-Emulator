@@ -47,12 +47,44 @@ To compile use this command
 | `bcd`    | x        | Fx33   | Store BCD of Vx at I, I+1, I+2 |
 | `stor`   | x        | Fx55   | Store V0..Vx in memory at I |
 | `read`   | x        | Fx65   | Read V0..Vx from memory at I |
+| `label`  |          |        | Any value not above will be created as a label |
 
-#### Example
+#### Example counter
 ```
-jp 0xf23
-addr 1 5
-key 2
+ld 0 0
+ld 1 29
+ld 2 13
+ld 3 32
+
+mainloop
+	call draw
+	call adder
+	sdt 3
+	call timer
+	jp mainloop
+
+draw
+	sne 3 0
+	ret
+	font 0
+	cls
+	drw 1 2 5
+	ret
+
+adder
+	add 0 1
+
+	sne 0 5
+	ld 0 0
+
+	ret
+
+timer
+	gdt 4
+	se 4 0
+	jp timer
+	ret
+
 ```
 
 ### References
