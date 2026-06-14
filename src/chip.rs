@@ -43,6 +43,7 @@ pub struct Chip {
 
     opcode: u16,
     index: u16,
+    end: u16,
 }
 
 static OPCODE_TABLE: LazyLock<HashMap<u16, fn(&mut Chip)>> = LazyLock::new(|| {
@@ -99,6 +100,7 @@ impl Chip {
             display_memory: [0; 64 * 32],
             opcode: 0,
             index: 0,
+            end: 0,
         };
 
         chip.load_fontset();
@@ -110,6 +112,7 @@ impl Chip {
     pub fn load_rom_into_memory(&mut self, filename: String) {
         self.memory[(START_ADDRESS as usize)..].fill(0);
         let bytes: Vec<u8> = std::fs::read(filename).unwrap();
+        self.end = START_ADDRESS + bytes.len() as u16;
         for i in 0..bytes.len() {
             self.memory[START_ADDRESS as usize + i] = bytes[i];
         }
@@ -483,7 +486,13 @@ impl Chip {
             0xf => self.opcode & 0xf0ff,
             _ => self.opcode & 0xf000,
         };
-        OPCODE_TABLE[&hash](self);
+        match OPCODE_TABLE.get(&hash) {
+            Some(op) => op(self),
+            None => eprintln!(
+                "unknown opcode: {:#06x} (hash: {:#06x}) at pc {:#06x}",
+                self.opcode, hash, self.program_counter
+            ),
+        }
     }
 
     fn set_opcode(&mut self) {
@@ -503,6 +512,11 @@ impl Chip {
         self.set_opcode();
         self.increment();
         self.runop();
+
+        if self.program_counter >= self.end {
+            eprintln!("Program did not loop");
+            std::process::exit(1);
+        }
     }
 
     pub fn tick_timers(&mut self) {

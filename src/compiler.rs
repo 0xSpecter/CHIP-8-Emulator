@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 // this file is compiled seperatly, its just included in main for lsp reasons
 struct Compiler {
     tokens: Vec<String>,
     index: usize,
     opcodes: Vec<u16>,
+    labels: HashMap<String, u16>,
 }
 
 impl Compiler {
@@ -11,11 +14,39 @@ impl Compiler {
             tokens: vec![],
             index: 0,
             opcodes: vec![],
+            labels: HashMap::new(),
         }
     }
+
+    fn assign_labels(&mut self) {
+        // kinda wacky but have to loop tokens twice to assign and replace labels
+        let mut program_counter: u16 = 0x200;
+        let mut index: usize = 0;
+        while index < self.tokens.len() {
+            let index_plus = match self.tokens[index].as_str() {
+                "cls" | "ret" => 0,
+                "jp" | "call" | "ldi" | "jpv" => 1,
+                "se" | "sne" | "ld" | "add" | "rnd" | "sev" | "mov" | "or" | "and" | "xor"
+                | "addr" | "sub" | "shr" | "subn" | "shl" | "snev" => 2,
+                "skp" | "sknp" | "gdt" | "key" | "sdt" | "sst" | "addi" | "font" | "bcd"
+                | "stor" | "read" => 1,
+                "drw" => 3,
+                label => {
+                    self.labels.insert(String::from(label), program_counter);
+                    index += 1;
+                    // does not factor into opcode array so skip before added
+                    continue;
+                }
+            };
+            index += 1 + index_plus;
+            program_counter += 2;
+        }
+    }
+
     pub fn compile(&mut self, inname: String, outname: String) {
         let code = std::fs::read_to_string(inname).unwrap();
         self.tokens = code.split_whitespace().map(|s| s.to_owned()).collect();
+        self.assign_labels();
         while self.index < self.tokens.len() {
             match self.tokens[self.index].as_str() {
                 // Clear the display
@@ -99,15 +130,15 @@ impl Compiler {
     }
 
     fn combine_xnnn(&mut self, x: u16) {
-        self.push((x << 12) | self.tokens[self.index + 1].parse::<u16>().unwrap());
+        self.push((x << 12) | self.parse(&self.tokens[self.index + 1]));
         self.index += 1;
     }
 
     fn combine_xnkk(&mut self, x: u16) {
         self.push(
             (x << 12)
-                | (self.tokens[self.index + 1].parse::<u16>().unwrap() << 8)
-                | self.tokens[self.index + 2].parse::<u16>().unwrap(),
+                | (self.parse(&self.tokens[self.index + 1]) << 8)
+                | self.parse(&self.tokens[self.index + 2]),
         );
         self.index += 2;
     }
@@ -115,30 +146,39 @@ impl Compiler {
     fn combine_xyzn(&mut self, x: u16, n: u16) {
         self.push(
             (x << 12)
-                | (self.tokens[self.index + 1].parse::<u16>().unwrap() << 8)
-                | (self.tokens[self.index + 2].parse::<u16>().unwrap() << 4)
+                | (self.parse(&self.tokens[self.index + 1]) << 8)
+                | (self.parse(&self.tokens[self.index + 2]) << 4)
                 | n,
         );
         self.index += 2;
     }
 
     fn combine_xflo(&mut self, lo: u16) {
-        self.push((0xf << 12) | (self.tokens[self.index + 1].parse::<u16>().unwrap() << 8) | lo);
+        self.push((0xf << 12) | (self.parse(&self.tokens[self.index + 1]) << 8) | lo);
         self.index += 1;
     }
 
     fn combine_xyn(&mut self) {
         self.push(
             (0xd << 12)
-                | (self.tokens[self.index + 1].parse::<u16>().unwrap() << 8)
-                | (self.tokens[self.index + 2].parse::<u16>().unwrap() << 4)
-                | self.tokens[self.index + 3].parse::<u16>().unwrap(),
+                | (self.parse(&self.tokens[self.index + 1]) << 8)
+                | (self.parse(&self.tokens[self.index + 2]) << 4)
+                | self.parse(&self.tokens[self.index + 3]),
         );
         self.index += 3;
     }
 
     fn push(&mut self, opcode: u16) {
         self.opcodes.push(opcode);
+    }
+
+    fn parse(&self, token: &String) -> u16 {
+        if token.starts_with("0x") {
+            u16::from_str_radix(&token[2..], 16)
+        } else {
+            token.parse::<u16>()
+        }
+        .unwrap_or_else(|_| self.labels.get(token).unwrap().clone())
     }
 }
 

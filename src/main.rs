@@ -39,7 +39,9 @@ impl ApplicationHandler for App<'_> {
         let surface = SurfaceTexture::new(640, 320, window.clone());
         self.pixels = Some(Pixels::new(64, 32, surface).unwrap());
 
-        self.chip.load_rom_into_memory(String::from("tetris.ch8"));
+        let args: Vec<String> = std::env::args().collect();
+
+        self.chip.load_rom_into_memory(args[1].clone());
 
         self.last_cycle = Some(Instant::now());
         self.cycle_delay = Duration::from_millis(2);
